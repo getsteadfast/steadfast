@@ -1,0 +1,52 @@
+site_name: Steadfast
+site_description: Browser agents that don't lose their sessions
+site_url: https://docs.steadfast.dev
+repo_url: https://github.com/getsteadfast/steadfast
+repo_name: getsteadfast/steadfast
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  features:
+    - navigation.tabs
+    - navigation.top
+    - content.code.copy
+    - content.action.edit
+  palette:
+    - scheme: default
+      primary: deep purple
+      toggle:
+        icon: material/weather-sunny
+        name: Dark mode
+    - scheme: slate
+      primary: deep purple
+      toggle:
+        icon: material/weather-night
+        name: Light mode
+
+nav:
+  - Home: index.md
+  - Getting started: getting-started.md
+  - Auth & sessions: auth-and-sessions.md
+  - Anti-detection: anti-detect.md
+  - Blog:
+      - blog/why-browser-agents-lose-their-sessions.md
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.snippets:
+      base_path: ["./"]
+  - tables
+  - toc:
+      permalink: true
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/getsteadfast/steadfast
+    - icon: fontawesome/brands/x-twitter
+      link: https://x.com/getsteadfast
