@@ -1,0 +1,69 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "steadfast"
+version = "0.0.1"
+description = "Browser agents that don't lose their sessions."
+readme = "README.md"
+license = { text = "Apache-2.0 WITH Commons-Clause" }
+authors = [
+    { name = "TBD" },
+]
+requires-python = ">=3.10"
+keywords = ["browser", "agent", "playwright", "automation", "ai", "session"]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Internet :: WWW/HTTP :: Browsers",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+dependencies = [
+    "playwright>=1.40",
+    "structlog>=23.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4",
+    "pytest-asyncio>=0.21",
+    "ruff>=0.1",
+    "mypy>=1.7",
+]
+
+[project.urls]
+Homepage = "https://steadfast.dev"
+Repository = "https://github.com/getsteadfast/steadfast"
+Documentation = "https://docs.steadfast.dev"
+Issues = "https://github.com/getsteadfast/steadfast/issues"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["steadfast*"]
+exclude = ["tests*", "examples*", "docs*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "B", "C4", "SIM", "UP"]
+ignore = [
+    "E501",  # line too long — formatter handles this
+    "N818",  # Exception name doesn't end with "Error" — intentional naming
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["N806"]  # Allow PascalCase locals in tests (ExcCls etc.)
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
