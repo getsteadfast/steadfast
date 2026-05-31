@@ -42,3 +42,7 @@ state.json
 pypiapi.txt
 *.pypirc
 .env
+
+# Drafts that aren't part of the library itself
+SHOW_HN.md
+*.draft.md
