@@ -14,10 +14,10 @@ readme = "README.md"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 authors = [
-    { name = "Steadfast Maintainers", email = "hello@steadfast.dev" },
+    { name = "Steadfast Maintainers", email = "hello@rustral.com" },
 ]
 maintainers = [
-    { name = "Steadfast Maintainers", email = "hello@steadfast.dev" },
+    { name = "Steadfast Maintainers", email = "hello@rustral.com" },
 ]
 requires-python = ">=3.10"
 keywords = ["browser", "agent", "playwright", "automation", "ai", "session"]
@@ -54,9 +54,9 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://steadfast.dev"
+Homepage = "https://steadfast.rustral.com/"
 Repository = "https://github.com/getsteadfast/steadfast"
-Documentation = "https://docs.steadfast.dev"
+Documentation = "https://steadfast.rustral.com/"
 Issues = "https://github.com/getsteadfast/steadfast/issues"
 
 [tool.setuptools.packages.find]

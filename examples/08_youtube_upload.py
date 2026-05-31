@@ -79,7 +79,7 @@ async def main() -> None:
         result = await yt.upload(
             video_path,
             title=title,
-            description="Uploaded via Steadfast — https://steadfast.dev",
+            description="Uploaded via Steadfast — https://steadfast.rustral.com/",
             privacy=privacy,  # type: ignore[arg-type]
         )
 

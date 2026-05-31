@@ -189,5 +189,5 @@ Apache 2.0 with Commons Clause — see [LICENSE](./LICENSE).
 You can use Steadfast for any commercial or non-commercial purpose,
 including paid client work.  You can't host it as a competing SaaS
 product.  If that's what you want, contact us at
-[hello@steadfast.dev](mailto:hello@steadfast.dev) about a commercial
+[hello@rustral.com](mailto:hello@rustral.com) about a commercial
 license.

@@ -57,7 +57,7 @@ you can run manually.
 
 If you find a vulnerability — e.g. an anti-detect bypass that exposes
 operators, a path traversal in the profiles dir, anything that could
-leak credentials — please email security@steadfast.dev rather than
+leak credentials — please email security@rustral.com rather than
 opening a public issue.
 
 ## License of contributions
