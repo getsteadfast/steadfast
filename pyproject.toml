@@ -8,7 +8,7 @@ build-backend = "setuptools.build_meta"
 # The IMPORT name stays `steadfast` (set by the package directory itself),
 # so user code is `from steadfast import ...` regardless of dist name.
 name = "steadfast-browser"
-version = "0.1.0"
+version = "0.1.1"
 description = "Browser agents that don't lose their sessions."
 readme = "README.md"
 license = "Apache-2.0"

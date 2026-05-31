@@ -144,4 +144,4 @@ The synthetic id prevents your queue from reposting it as a duplicate.
 
 - [Auth & sessions](./auth-and-sessions.md) — the *why* behind the design
 - [Anti-detection](./anti-detect.md) — what's in the init script
-- [Examples](../examples/) — five runnable scripts to copy from
+- [Examples on GitHub](https://github.com/getsteadfast/steadfast/tree/main/examples) — nine runnable scripts to copy from

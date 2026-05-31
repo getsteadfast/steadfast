@@ -12,7 +12,7 @@ This page explains both.
 ## What's in the init script
 
 The script runs in every page before any site JS executes.  Source:
-[`steadfast/browser_manager.py`](../steadfast/browser_manager.py),
+[`steadfast/browser_manager.py`](https://github.com/getsteadfast/steadfast/blob/main/steadfast/browser_manager.py),
 constant `_ANTI_DETECT_INIT_JS`.
 
 ### `navigator.webdriver` → `undefined`

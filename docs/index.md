@@ -6,12 +6,10 @@ Steadfast is a Python library for running headless-browser automation
 across multiple accounts and platforms — with anti-detection, session
 persistence, and per-account isolation built in.
 
-[![Tests](https://img.shields.io/badge/tests-85%20passing-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-130%20passing-brightgreen)]()
 [![License](https://img.shields.io/badge/license-Apache--2.0%20with%20Commons%20Clause-blue)]()
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)]()
-
-> ⚠️ **Status: pre-alpha.** APIs may shift before v0.1.0.  Pin a commit if
-> you depend on this in production today.
+[![PyPI](https://img.shields.io/badge/pypi-steadfast--browser-orange)](https://pypi.org/project/steadfast-browser/)
 
 ---
 
@@ -50,6 +48,7 @@ playwright install chromium
 
 ```python
 import asyncio
+import json
 from pathlib import Path
 from steadfast import AntiDetect, BrowserManager, BrowserManagerConfig
 from steadfast.platforms import Twitter
@@ -60,15 +59,16 @@ async def main():
         AntiDetect(),
     )
     await bm.start()
-
-    twitter = Twitter(bm, account_key="my_twitter")
-    await twitter.import_cookies(open("twitter_cookies.json").read())
-    assert await twitter.ensure_logged_in()
-
-    result = await twitter.post("Hello from Steadfast!")
-    print(result.url)
-
-    await bm.shutdown()
+    try:
+        twitter = Twitter(bm, account_key="my_twitter")
+        await twitter.import_cookies(
+            json.loads(Path("twitter_cookies.json").read_text())
+        )
+        assert await twitter.ensure_logged_in()
+        result = await twitter.post("Hello from Steadfast!")
+        print(result.url)
+    finally:
+        await bm.shutdown()
 
 asyncio.run(main())
 ```
@@ -82,11 +82,14 @@ in your code.  The cookies you imported keep working for weeks.
 
 ### Platforms
 
-| Platform | Auth | Post | Reply / Comment | Like / Upvote | Health check |
-|---|:---:|:---:|:---:|:---:|:---:|
-| **Twitter / X** | cookies / login | ✅ | ✅ | ✅ | ✅ |
-| **LinkedIn** | cookies / login | ✅ | ✅ (comment) | ✅ | ✅ |
-| **Reddit** | cookies / login | ✅ | ✅ (comment) | ✅ (upvote) | ✅ |
+| Platform | Auth | Post | Comment | Like | Upload | Health |
+|---|:---:|:---:|:---:|:---:|:---:|:---:|
+| **Twitter / X** | cookies / login | ✅ | ✅ (reply) | ✅ | — | ✅ |
+| **LinkedIn** | cookies / login | ✅ | ✅ | ✅ | — | ✅ |
+| **Reddit** | cookies / login | ✅ | ✅ | ✅ (upvote) | — | ✅ |
+| **Facebook** | cookies / login | ✅ | ✅ | ✅ | — | ✅ |
+| **Instagram** | cookies / login | ✅ (image) | ✅ | ✅ | — | ✅ |
+| **YouTube** | cookies / login | — | ✅ | ✅ | ✅ (video) | ✅ |
 
 ### Core library
 
@@ -111,23 +114,27 @@ SteadfastError
 
 ## Examples
 
-See [`examples/`](./examples/) for runnable scripts:
+Runnable scripts live in the [examples directory on GitHub](https://github.com/getsteadfast/steadfast/tree/main/examples):
 
 | # | File | Demonstrates |
 |---|---|---|
-| 1 | [01_twitter_post.py](./examples/01_twitter_post.py) | Simplest possible post |
-| 2 | [02_linkedin_with_cookies.py](./examples/02_linkedin_with_cookies.py) | Cookie import + post (recommended auth pattern) |
-| 3 | [03_reddit_comment.py](./examples/03_reddit_comment.py) | old.reddit / new.reddit auto-fallback |
-| 4 | [04_session_save_restore.py](./examples/04_session_save_restore.py) | Sessions survive BrowserManager restart |
-| 5 | [05_multi_account.py](./examples/05_multi_account.py) | Two accounts running concurrently on one BM |
+| 1 | [01_twitter_post.py](https://github.com/getsteadfast/steadfast/blob/main/examples/01_twitter_post.py) | Simplest possible post |
+| 2 | [02_linkedin_with_cookies.py](https://github.com/getsteadfast/steadfast/blob/main/examples/02_linkedin_with_cookies.py) | Cookie import + post (recommended auth pattern) |
+| 3 | [03_reddit_comment.py](https://github.com/getsteadfast/steadfast/blob/main/examples/03_reddit_comment.py) | old.reddit / new.reddit auto-fallback |
+| 4 | [04_session_save_restore.py](https://github.com/getsteadfast/steadfast/blob/main/examples/04_session_save_restore.py) | Sessions survive BrowserManager restart |
+| 5 | [05_multi_account.py](https://github.com/getsteadfast/steadfast/blob/main/examples/05_multi_account.py) | Two accounts running concurrently on one BM |
+| 6 | [06_facebook_post.py](https://github.com/getsteadfast/steadfast/blob/main/examples/06_facebook_post.py) | Facebook composer-dialog flow |
+| 7 | [07_youtube_comment.py](https://github.com/getsteadfast/steadfast/blob/main/examples/07_youtube_comment.py) | YouTube comment with Google-domain + youtube-domain cookies |
+| 8 | [08_youtube_upload.py](https://github.com/getsteadfast/steadfast/blob/main/examples/08_youtube_upload.py) | Video upload via YouTube Studio wizard |
+| 9 | [09_instagram_post.py](https://github.com/getsteadfast/steadfast/blob/main/examples/09_instagram_post.py) | Single-image post via Instagram web composer |
 
 ---
 
 ## Documentation
 
-- [Getting started](./docs/getting-started.md) — install, first run, troubleshooting
-- [Auth & sessions](./docs/auth-and-sessions.md) — the wedge, explained
-- [Anti-detection](./docs/anti-detect.md) — what's in the init script and why
+- [Getting started](getting-started.md) — install, first run, troubleshooting
+- [Auth & sessions](auth-and-sessions.md) — the wedge, explained
+- [Anti-detection](anti-detect.md) — what's in the init script and why
 
 ---
 
@@ -158,9 +165,12 @@ steadfast/
     twitter.py
     linkedin.py
     reddit.py
+    facebook.py
+    instagram.py
+    youtube.py
     _models.py             # PostResult dataclass
-tests/                     # 85 tests, < 1s to run
-examples/                  # 5 runnable scripts
+tests/                     # 130 unit tests + 3 real-browser integration tests
+examples/                  # 9 runnable scripts
 docs/                      # mkdocs site
 ```
 
@@ -168,23 +178,26 @@ docs/                      # mkdocs site
 
 ## Contributing
 
-Bug reports + PRs welcome on GitHub.  Before submitting:
+Bug reports + PRs welcome on [GitHub](https://github.com/getsteadfast/steadfast).  Before submitting:
 
 ```bash
 pip install -e ".[dev]"
 ruff check steadfast/ tests/
-pytest -q
+mypy --strict steadfast/
+pytest                                  # 130 unit tests, ~1s
+pytest -m integration tests/integration # 3 real-browser tests, ~3s
 ```
 
-The full test suite runs in under one second and doesn't require launching
-a real browser — most of the real-browser code paths are tested via the
-[examples](./examples/) on real platforms.
+The full unit suite runs in under one second and doesn't require launching
+a real browser — most real-browser code paths are exercised by the
+integration tests, which spin up a chromium context to verify the
+anti-detect init script actually applies in-browser.
 
 ---
 
 ## License
 
-Apache 2.0 with Commons Clause — see [LICENSE](./LICENSE).
+Apache 2.0 with Commons Clause — see [LICENSE on GitHub](https://github.com/getsteadfast/steadfast/blob/main/LICENSE).
 
 You can use Steadfast for any commercial or non-commercial purpose,
 including paid client work.  You can't host it as a competing SaaS

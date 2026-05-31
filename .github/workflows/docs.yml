@@ -44,13 +44,12 @@ jobs:
             "mkdocs-material==9.5.49" \
             "pymdown-extensions==10.12"
 
-      # NOTE: --strict was disabled because docs/index.md contains
-      # relative links to repo-level files (examples/, LICENSE, source
-      # under steadfast/) that aren't part of the mkdocs site tree.
-      # Convert those links to absolute github.com URLs in a follow-up,
-      # then re-enable --strict so broken nav targets fail the build.
+      # --strict catches broken nav targets / cross-page links as fatal
+      # errors. Repo-level links (examples/, LICENSE, source under
+      # steadfast/) live outside the mkdocs site and are written as
+      # absolute https://github.com/... URLs so --strict accepts them.
       - name: Build site
-        run: mkdocs build --site-dir _site
+        run: mkdocs build --strict --site-dir _site
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
