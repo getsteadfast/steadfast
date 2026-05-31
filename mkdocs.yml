@@ -1,6 +1,6 @@
 site_name: Steadfast
 site_description: Browser agents that don't lose their sessions
-site_url: https://docs.steadfast.dev
+site_url: https://steadfast.rustral.com/
 repo_url: https://github.com/getsteadfast/steadfast
 repo_name: getsteadfast/steadfast
 edit_uri: edit/main/docs/
