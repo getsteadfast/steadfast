@@ -43,6 +43,37 @@ REDDIT_BASE = "https://www.reddit.com"
 OLD_REDDIT_BASE = "https://old.reddit.com"
 
 
+async def _first_selector(
+    page: Page, selectors: tuple[str, ...], timeout: int = 5000
+) -> ElementHandle | None:
+    """Return the first element matching any selector, or None if all fail.
+
+    Selector-chain helper used by login + comment-box flows where the target
+    element has multiple possible identifiers across UI variants.
+    """
+    for sel in selectors:
+        try:
+            el = await page.wait_for_selector(sel, timeout=timeout)
+            if el:
+                return el
+        except Exception:
+            continue
+    return None
+
+
+async def _click_first_visible(page: Page, selectors: tuple[str, ...]) -> bool:
+    """Click the first VISIBLE element matching any selector. True iff clicked."""
+    for sel in selectors:
+        try:
+            btn = await page.query_selector(sel)
+            if btn and await btn.is_visible():
+                await btn.click()
+                return True
+        except Exception:
+            continue
+    return False
+
+
 # JS that force-reveals a hidden element by un-setting display:none on it and
 # its ancestors. Reddit hides the comment textarea behind a JS-only "expand"
 # trigger on some old-reddit themes.
@@ -199,6 +230,37 @@ class Reddit:
             return await self.login(username=username, password=password)
         return False
 
+    # Per-variant selector tuples — old.reddit has the simpler form (more reliable);
+    # new reddit has more selector variation due to ongoing UI churn.
+    _OLD_LOGIN: dict[str, Any] = {
+        "url_suffix": "/login",
+        "user": ("#user_login", 'input[name="user"]'),
+        "pwd": ("#passwd_login", 'input[name="passwd"]'),
+        "submit": ('button[type="submit"]', "#login-button", 'input[type="submit"]'),
+        "post_submit_delay": (4.0, 7.0),
+    }
+    _NEW_LOGIN: dict[str, Any] = {
+        "url_suffix": "/login",
+        "user": (
+            'input[name="username"]',
+            "#loginUsername",
+            'input[id="loginUsername"]',
+            'input[autocomplete="username"]',
+        ),
+        "pwd": (
+            'input[name="password"]',
+            "#loginPassword",
+            'input[id="loginPassword"]',
+            'input[type="password"]',
+        ),
+        "submit": (
+            'button[type="submit"]',
+            'button:has-text("Log In")',
+            'button:has-text("Log in")',
+        ),
+        "post_submit_delay": (5.0, 8.0),
+    }
+
     async def login(self, username: str, password: str) -> bool:
         """Log in with credentials. Tries old reddit first, then new reddit.
 
@@ -211,98 +273,37 @@ class Reddit:
             return True
 
         last_error: Exception | None = None
-        for strategy in ("old_reddit", "new_reddit"):
+        strategies = (
+            ("old_reddit", OLD_REDDIT_BASE, self._OLD_LOGIN),
+            ("new_reddit", REDDIT_BASE, self._NEW_LOGIN),
+        )
+        for name, base, spec in strategies:
             try:
-                if strategy == "old_reddit":
-                    ok = await self._login_old_reddit(username, password)
-                else:
-                    ok = await self._login_new_reddit(username, password)
-                if ok:
+                if await self._do_login(base + spec["url_suffix"], username, password, spec):
                     self._is_logged_in = True
                     await self._save_session()
-                    log.info("Login successful", username=username, strategy=strategy)
+                    log.info("Login successful", username=username, strategy=name)
                     return True
             except Exception as exc:
                 last_error = exc
-                log.warning(
-                    "Login strategy failed", strategy=strategy, error=str(exc)
-                )
+                log.warning("Login strategy failed", strategy=name, error=str(exc))
                 continue
 
         raise LoginFailed("reddit", f"All login strategies failed. Last error: {last_error}")
 
-    async def _login_old_reddit(self, username: str, password: str) -> bool:
-        """Login via old.reddit.com/login (simpler form, more reliable)."""
+    async def _do_login(
+        self, login_url: str, username: str, password: str, spec: dict[str, Any]
+    ) -> bool:
+        """Shared form-fill flow for both old + new Reddit login variants."""
         page = await self._get_page()
         try:
-            await page.goto(f"{OLD_REDDIT_BASE}/login", wait_until="domcontentloaded")
+            await page.goto(login_url, wait_until="domcontentloaded")
             await self._anti_detect.random_delay(2.0, 4.0)
 
-            user_input = await page.wait_for_selector(
-                '#user_login, input[name="user"]', timeout=10000
-            )
-            pass_input = await page.wait_for_selector(
-                '#passwd_login, input[name="passwd"]', timeout=10000
-            )
-
-            await user_input.click()
-            await self._anti_detect.random_delay(0.3, 0.8)
-            await user_input.fill(username)
-            await self._anti_detect.random_delay(0.5, 1.2)
-            await pass_input.click()
-            await self._anti_detect.random_delay(0.3, 0.8)
-            await pass_input.fill(password)
-            await self._anti_detect.random_delay(0.8, 2.0)
-
-            login_btn = await page.query_selector(
-                'button[type="submit"], #login-button, input[type="submit"]'
-            )
-            if login_btn:
-                await login_btn.click()
-            else:
-                await pass_input.press("Enter")
-
-            await self._anti_detect.random_delay(4.0, 7.0)
-            return await self._verify_login(page, username)
-        finally:
-            await page.close()
-
-    async def _login_new_reddit(self, username: str, password: str) -> bool:
-        """Login via www.reddit.com/login (newer flow, more variation)."""
-        page = await self._get_page()
-        try:
-            await page.goto(f"{REDDIT_BASE}/login", wait_until="domcontentloaded")
-            await self._anti_detect.random_delay(2.0, 4.0)
-
-            user_input = None
-            for sel in (
-                'input[name="username"]',
-                "#loginUsername",
-                'input[id="loginUsername"]',
-                'input[autocomplete="username"]',
-            ):
-                try:
-                    user_input = await page.wait_for_selector(sel, timeout=5000)
-                    if user_input:
-                        break
-                except Exception:
-                    continue
+            user_input = await _first_selector(page, spec["user"], timeout=10000)
             if not user_input:
                 raise LoginFailed("reddit", "Could not find username field")
-
-            pass_input = None
-            for sel in (
-                'input[name="password"]',
-                "#loginPassword",
-                'input[id="loginPassword"]',
-                'input[type="password"]',
-            ):
-                try:
-                    pass_input = await page.wait_for_selector(sel, timeout=5000)
-                    if pass_input:
-                        break
-                except Exception:
-                    continue
+            pass_input = await _first_selector(page, spec["pwd"], timeout=10000)
             if not pass_input:
                 raise LoginFailed("reddit", "Could not find password field")
 
@@ -315,24 +316,10 @@ class Reddit:
             await pass_input.fill(password)
             await self._anti_detect.random_delay(0.8, 2.0)
 
-            clicked = False
-            for sel in (
-                'button[type="submit"]',
-                'button:has-text("Log In")',
-                'button:has-text("Log in")',
-            ):
-                try:
-                    btn = await page.query_selector(sel)
-                    if btn and await btn.is_visible():
-                        await btn.click()
-                        clicked = True
-                        break
-                except Exception:
-                    continue
-            if not clicked:
+            if not await _click_first_visible(page, spec["submit"]):
                 await pass_input.press("Enter")
 
-            await self._anti_detect.random_delay(5.0, 8.0)
+            await self._anti_detect.random_delay(*spec["post_submit_delay"])
             return await self._verify_login(page, username)
         finally:
             await page.close()
@@ -629,28 +616,16 @@ class Reddit:
             await comment_box.type(text, delay=25)
             await self._anti_detect.random_delay(1.5, 3.0)
 
-            # Submit
-            submit_btn = None
-            for sel in (
+            # Submit; if no visible button is found, fall back to Ctrl-Enter.
+            submit_selectors = (
                 ".usertext-edit .save-button button",
                 'button:has-text("save")',
                 'button:has-text("comment")',
                 'button[type="submit"]',
                 "shreddit-composer button[type=submit]",
-            ):
-                try:
-                    btn = await page.query_selector(sel)
-                    if btn and await btn.is_visible():
-                        submit_btn = btn
-                        break
-                except Exception:
-                    continue
-
-            if not submit_btn:
-                # Fallback: Ctrl-Enter
+            )
+            if not await _click_first_visible(page, submit_selectors):
                 await comment_box.press("Control+Enter")
-            else:
-                await submit_btn.click()
 
             await self._anti_detect.random_delay(3.0, 6.0)
 

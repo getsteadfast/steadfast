@@ -8,16 +8,21 @@ minutes, then covers the most common failure modes.
 Steadfast needs Python 3.10+ and Playwright's Chromium build:
 
 ```bash
-pip install steadfast
+pip install steadfast-browser    # dist name on PyPI (imports as `steadfast`)
 playwright install chromium
 ```
 
 Optional extras:
 
 ```bash
-pip install "steadfast[health]"   # adds aiohttp for proxy health checks
-pip install "steadfast[dev]"      # adds pytest, ruff, mypy for contributors
+pip install "steadfast-browser[health]"   # adds aiohttp for proxy health checks
+pip install "steadfast-browser[dev]"      # adds pytest, ruff, mypy for contributors
 ```
+
+> The PyPI distribution name is `steadfast-browser` because the bare
+> `steadfast` name was already taken by an unrelated 2023 package.  The
+> import name remains `steadfast` — `from steadfast import ...` works the
+> same.
 
 ## 2. Decide how you'll authenticate
 

@@ -46,11 +46,16 @@ class RemoteDisplay:
         self.vnc_port = vnc_port
         self.width = width
         self.height = height
-        self._xvfb: subprocess.Popen | None = None
-        self._x11vnc: subprocess.Popen | None = None
+        self._xvfb: subprocess.Popen[bytes] | None = None
+        self._x11vnc: subprocess.Popen[bytes] | None = None
         self._running = False
 
     async def start(self) -> None:
+        """Launch Xvfb + x11vnc and mark the display ready.
+
+        Idempotent — calling `start` twice on the same instance is a no-op.
+        Raises `RuntimeError` if either subprocess fails to come up.
+        """
         if self._running:
             return
 
@@ -107,6 +112,11 @@ class RemoteDisplay:
         log.info("Remote display ready", display=self.display, vnc_port=self.vnc_port)
 
     async def stop(self) -> None:
+        """Terminate x11vnc and Xvfb, then mark the display stopped.
+
+        Sends SIGTERM with a 3-second grace window before SIGKILL.
+        Idempotent — calling `stop` when not running is a no-op.
+        """
         if not self._running:
             return
         for name, proc in [("x11vnc", self._x11vnc), ("Xvfb", self._xvfb)]:

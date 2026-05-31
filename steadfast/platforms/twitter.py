@@ -33,7 +33,7 @@ from typing import TYPE_CHECKING, Any
 
 from .._log import get_logger
 from ..browser_manager import BrowserManager
-from ..exceptions import LoginFailed
+from ..exceptions import LoginFailed, PlatformError
 from ._models import PostResult
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -42,6 +42,31 @@ if TYPE_CHECKING:  # pragma: no cover
 log = get_logger("steadfast.twitter")
 
 TWITTER_BASE = "https://x.com"
+
+
+def _tweet_id_from_href(href: str) -> str:
+    """Pull a tweet id out of any URL containing ``/status/<id>``.
+
+    Returns ``""`` if the URL doesn't have a status segment. Strips the
+    query string and any trailing path component.
+    """
+    if "/status/" not in href:
+        return ""
+    return href.split("/status/")[-1].split("?")[0].split("/")[0]
+
+
+def _require_handle(handle: ElementHandle | None, what: str) -> ElementHandle:
+    """Narrow ``Optional[ElementHandle]`` → ``ElementHandle`` or raise.
+
+    Playwright's ``wait_for_selector`` raises ``TimeoutError`` when the
+    target doesn't appear within the timeout (default state is
+    ``visible``), so the ``None`` branch is unreachable in practice — but
+    the type stubs still surface it.  This helper turns "supposedly
+    unreachable" into a concrete ``PlatformError`` with the call-site name.
+    """
+    if handle is None:
+        raise PlatformError("twitter", f"Required element returned null: {what}")
+    return handle
 
 
 class Twitter:
@@ -159,9 +184,12 @@ class Twitter:
             )
             await self._anti_detect.short_pause()
 
-            next_btn = await page.wait_for_selector(
-                'button:has-text("Next"), div[role="button"]:has-text("Next")',
-                timeout=10000,
+            next_btn = _require_handle(
+                await page.wait_for_selector(
+                    'button:has-text("Next"), div[role="button"]:has-text("Next")',
+                    timeout=10000,
+                ),
+                "Next button (login step 1)",
             )
             await next_btn.click()
             await self._anti_detect.random_delay(2.0, 4.0)
@@ -176,9 +204,12 @@ class Twitter:
                 if verify:
                     await verify.fill(email or username)
                     await self._anti_detect.short_pause()
-                    vbtn = await page.wait_for_selector(
-                        'button:has-text("Next"), div[role="button"]:has-text("Next")',
-                        timeout=5000,
+                    vbtn = _require_handle(
+                        await page.wait_for_selector(
+                            'button:has-text("Next"), div[role="button"]:has-text("Next")',
+                            timeout=5000,
+                        ),
+                        "Next button (login step 1.5 verify)",
                     )
                     await vbtn.click()
                     await self._anti_detect.random_delay(2.0, 4.0)
@@ -196,11 +227,14 @@ class Twitter:
             )
             await self._anti_detect.short_pause()
 
-            login_btn = await page.wait_for_selector(
-                'button[data-testid="LoginForm_Login_Button"], '
-                'div[role="button"]:has-text("Log in"), '
-                'button:has-text("Log in")',
-                timeout=10000,
+            login_btn = _require_handle(
+                await page.wait_for_selector(
+                    'button[data-testid="LoginForm_Login_Button"], '
+                    'div[role="button"]:has-text("Log in"), '
+                    'button:has-text("Log in")',
+                    timeout=10000,
+                ),
+                "Log in button (login step 2)",
             )
             await login_btn.click()
             await self._anti_detect.random_delay(3.0, 7.0)
@@ -371,11 +405,14 @@ class Twitter:
             await page.goto(f"{TWITTER_BASE}/compose/tweet", wait_until="domcontentloaded")
             await self._anti_detect.random_delay(2.0, 4.0)
 
-            tweet_box = await page.wait_for_selector(
-                '[data-testid="tweetTextarea_0"], '
-                'div[role="textbox"][data-testid="tweetTextarea_0"], '
-                'div[role="textbox"]',
-                timeout=10000,
+            tweet_box = _require_handle(
+                await page.wait_for_selector(
+                    '[data-testid="tweetTextarea_0"], '
+                    'div[role="textbox"][data-testid="tweetTextarea_0"], '
+                    'div[role="textbox"]',
+                    timeout=10000,
+                ),
+                "tweet composer textbox",
             )
             await tweet_box.click()
             await self._anti_detect.short_pause()
@@ -394,8 +431,11 @@ class Twitter:
 
             if media_paths:
                 try:
-                    file_input = await page.wait_for_selector(
-                        'input[data-testid="fileInput"], input[type="file"]', timeout=5000
+                    file_input = _require_handle(
+                        await page.wait_for_selector(
+                            'input[data-testid="fileInput"], input[type="file"]', timeout=5000
+                        ),
+                        "media file input",
                     )
                     for path in media_paths[:4]:
                         if Path(path).exists():
@@ -406,11 +446,14 @@ class Twitter:
 
             post_btn = await self._find_post_button(page)
             if not post_btn:
-                post_btn = await page.wait_for_selector(
-                    '[data-testid="tweetButton"], '
-                    '[data-testid="tweetButtonInline"], '
-                    'button:has-text("Post")',
-                    timeout=10000,
+                post_btn = _require_handle(
+                    await page.wait_for_selector(
+                        '[data-testid="tweetButton"], '
+                        '[data-testid="tweetButtonInline"], '
+                        'button:has-text("Post")',
+                        timeout=10000,
+                    ),
+                    "post button (fallback selector)",
                 )
 
             for _ in range(20):
@@ -477,9 +520,9 @@ class Twitter:
                     href = await link_el.get_attribute("href") or ""
                     if href and not href.startswith("http"):
                         href = f"{TWITTER_BASE}{href}"
-                    if "/status/" in href:
+                    tweet_id = _tweet_id_from_href(href)
+                    if tweet_id:
                         tweet_url = href
-                        tweet_id = href.split("/status/")[-1].split("?")[0].split("/")[0]
         except Exception:
             pass
 
@@ -523,8 +566,8 @@ class Twitter:
                         href = await link_el.get_attribute("href") or ""
                         if href and not href.startswith("http"):
                             href = f"{TWITTER_BASE}{href}"
-                        if "/status/" in href:
-                            tid = href.split("/status/")[-1].split("?")[0].split("/")[0]
+                        tid = _tweet_id_from_href(href)
+                        if tid:
                             log.info(
                                 "Fetched tweet URL from profile fallback",
                                 tweet_id=tid,
@@ -561,8 +604,11 @@ class Twitter:
                 await reply_icon.click()
                 await self._anti_detect.random_delay(1.5, 3.0)
 
-            reply_box = await page.wait_for_selector(
-                '[data-testid="tweetTextarea_0"], div[role="textbox"]', timeout=10000
+            reply_box = _require_handle(
+                await page.wait_for_selector(
+                    '[data-testid="tweetTextarea_0"], div[role="textbox"]', timeout=10000
+                ),
+                "reply composer textbox",
             )
             await reply_box.click()
             await self._anti_detect.short_pause()
@@ -578,8 +624,12 @@ class Twitter:
 
             reply_btn = await self._find_post_button(page)
             if not reply_btn:
-                reply_btn = await page.wait_for_selector(
-                    '[data-testid="tweetButtonInline"], button:has-text("Reply")', timeout=10000
+                reply_btn = _require_handle(
+                    await page.wait_for_selector(
+                        '[data-testid="tweetButtonInline"], button:has-text("Reply")',
+                        timeout=10000,
+                    ),
+                    "reply submit button (fallback selector)",
                 )
             for _ in range(20):
                 if await reply_btn.get_attribute("aria-disabled") != "true":
@@ -619,9 +669,7 @@ class Twitter:
                 return PostResult(success=False, error="Could not confirm reply was posted")
 
             await self._save_session()
-            parent_id = ""
-            if "/status/" in tweet_url:
-                parent_id = tweet_url.split("/status/")[-1].split("?")[0].split("/")[0]
+            parent_id = _tweet_id_from_href(tweet_url)
             log.info("Reply posted", tweet_url=tweet_url[:80])
             return PostResult(
                 success=True,

@@ -12,6 +12,7 @@ import json
 import random
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 from ._log import get_logger
 
@@ -57,6 +58,7 @@ class ProxyInfo:
 
     @property
     def url(self) -> str:
+        """Return the full proxy URL, e.g. `http://user:pass@host:port`."""
         auth = f"{self.username}:{self.password}@" if self.username else ""
         return f"{self.protocol}://{auth}{self.host}:{self.port}"
 
@@ -157,7 +159,7 @@ class AntiDetect:
             self._proxy_assignments[account_key] = self.proxies[idx]
         return self._proxy_assignments[account_key]
 
-    def get_proxy_by_dict(self, proxy_dict: dict | None) -> ProxyInfo | None:
+    def get_proxy_by_dict(self, proxy_dict: dict[str, Any] | None) -> ProxyInfo | None:
         """Reconstruct a ProxyInfo from a serialized fingerprint dict."""
         if not proxy_dict:
             return None
@@ -205,7 +207,7 @@ class AntiDetect:
             ) as session, session.get(
                 "https://httpbin.org/ip", proxy=proxy.url
             ) as resp:
-                return resp.status == 200
+                return bool(resp.status == 200)
         except Exception:
             return False
 
@@ -247,7 +249,7 @@ class AntiDetect:
         self._proxy_assignments[account_key] = new_proxy
 
         try:
-            fp_data: dict = {}
+            fp_data: dict[str, Any] = {}
             if fingerprint_path.exists():
                 fp_data = json.loads(fingerprint_path.read_text())
             fp_data["proxy"] = {

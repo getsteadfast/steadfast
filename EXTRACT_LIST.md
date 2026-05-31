@@ -4,9 +4,14 @@
 > Destination: `/opt/steadfast/`
 > Each file gets imports updated + project-specific references removed.
 
+> **Status (2026-05-29 EOD):** Stage 1 ✅, Stage 2 ✅, Stage 3 ✅, Stage 4 ✅
+> (quality bar met: 85 tests passing, `mypy --strict` clean, `ruff` clean,
+> all docstrings present, no MarketPilot/SelfTrade refs in code).
+> See "Reality check" at the bottom for line-count actuals vs estimates.
+
 ---
 
-## Stage 1: Core library (Week 1, Day 4-7)
+## Stage 1: Core library (Week 1, Day 4-7) — DONE
 
 Copy these. Strip out: any `campaign_id`, `project_id`, `tenant_id` references; any AI-content-generation imports; any MarketPilot-DB ORM references; any structlog → `log = logging.getLogger(__name__)` simplification.
 
@@ -23,7 +28,7 @@ Copy these. Strip out: any `campaign_id`, `project_id`, `tenant_id` references; 
 
 ---
 
-## Stage 2: Platform clients (Week 2, Day 8-14)
+## Stage 2: Platform clients (Week 2, Day 8-14) — DONE
 
 Strip these to MVP. Each becomes a single class: `login()`, `post()`, `reply()`, `like()`, `get_session_health()`. Remove every reference to MarketPilot's manager / orchestrator / scheduler.
 
@@ -114,3 +119,34 @@ At 30 hours/week = 1.5 weeks of focused work. Matches the Week 1-3 portion of th
 7. **Day 14** (3h): write 5 example scripts. Each must actually run.
 
 Day 1-3 = name + repo setup + scaffolding (you're doing this now).
+
+---
+
+## Reality check (2026-05-29 EOD — post-port)
+
+Actual files on disk after Stage 2:
+
+| File | Pre-port estimate | Actual |
+|---|---:|---:|
+| `steadfast/platforms/twitter.py` | ~400 | **672** |
+| `steadfast/platforms/linkedin.py` | ~400 | **471** |
+| `steadfast/platforms/reddit.py` | ~600 | **802** |
+
+The pre-port estimates assumed the post-strip body would only need login + post +
+reply + like + session-health. In practice, **each platform has 3-7 UI variants**
+(old.reddit + new.reddit + shreddit-composer, X composer Draft.js + execCommand +
+CDP, LinkedIn editor + checkpoint flow). Removing fallbacks reaches the targets
+but breaks the working flows; defensive code is what makes the lib worth using.
+
+Decision: **keep the platform clients at their current sizes**, not the pre-port
+estimates. Re-run this trim only when concrete dead-code is identified (e.g., a
+UI variant that no longer exists on the live site).
+
+What WAS trimmed (structural, not surface):
+- `reddit.py` 827 → 802 (–25 lines): consolidated `_login_old_reddit` +
+  `_login_new_reddit` into a single `_do_login` driven by per-variant selector
+  dicts; introduced `_first_selector` + `_click_first_visible` module helpers.
+- `twitter.py` 663 → 672 (+9 lines net): added `_tweet_id_from_href` helper at
+  three call sites. Net cost is small, but the parsing logic is now a single
+  source of truth.
+- `linkedin.py` 471 (unchanged): already lean.

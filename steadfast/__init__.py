@@ -20,7 +20,7 @@ Quick start::
 
 from __future__ import annotations
 
-__version__ = "0.0.1"
+__version__ = "0.1.0"
 
 from ._log import configure_logging, get_logger
 from .anti_detect import (

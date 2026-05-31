@@ -45,15 +45,28 @@ realistic three.
 Headless defaults to `['en-US']`.  Real browsers carry the full list:
 `['en-US', 'en']`.  We patch that.
 
-### `navigator.maxTouchPoints`
+### `navigator.maxTouchPoints` / `hardwareConcurrency` / `deviceMemory`
 
-Set to 0 to assert "this is a desktop" — most automation runs on
-desktop sites and shouldn't claim to have touch.
+Hardware-info giveaways.  Headless Chrome reports `hardwareConcurrency=1`
+and leaves `deviceMemory` undefined — both suspicious on a desktop site.
+We pin them to common production values (`8` and `8`).  `maxTouchPoints=0`
+asserts "this is a desktop" — most automation runs on desktop sites and
+shouldn't claim to have touch.
 
 ### `navigator.connection.rtt`
 
 When `navigator.connection` exists, set `rtt` to a plausible 50ms.
 Sites use this to fingerprint network quality.
+
+### WebGL vendor + renderer
+
+Headless Chrome reports `Google Inc.` / `ANGLE (Google, SwiftShader …)`
+for the GPU vendor + renderer strings via the `WEBGL_debug_renderer_info`
+extension.  This is the single most-flagged automation signal after
+`navigator.webdriver` itself.  We replace both with a common Intel
+integrated-GPU pair (`Intel Inc.` / `Intel Iris OpenGL Engine`).  Like the
+`navigator` overrides, this is a constant value replacement — same
+fingerprint across every call, same as a real browser on the same machine.
 
 ### iframe shadow-DOM detection bypass
 
@@ -127,10 +140,12 @@ button.
 
 ## What we explicitly don't do
 
-- **Canvas / WebGL / audio fingerprint spoofing.**  These signals are
-  noisy in the wild and patching them often makes you *more* unique,
-  not less.  Default Chromium fingerprints with our static patches
-  pass the major detection libraries (Cloudflare, FingerprintJS).
+- **Canvas / Audio fingerprint noise injection.**  Per-call randomness
+  (e.g. flipping the LSB of pixel data on every `toDataURL` call) makes
+  the browser *more* uniquely identifiable, not less, because real
+  browsers are deterministic per session.  We patch the WebGL renderer
+  string (constant value, same approach as the `navigator` overrides),
+  but we deliberately leave Canvas and AudioContext alone.
 - **Random delay everywhere.**  Adding a global "sleep 0.5-2 seconds
   before every action" makes scripts unbearably slow without
   measurably improving detection.  We add delays specifically where

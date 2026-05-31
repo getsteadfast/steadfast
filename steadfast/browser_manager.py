@@ -43,37 +43,51 @@ if TYPE_CHECKING:  # pragma: no cover — typing only
 log = get_logger("steadfast.browser_manager")
 
 
-# Init script applied to every context — defeats common automation detection.
+# Init script applied to every context. Defeats common automation detection
+# by patching well-known fingerprint surfaces with REAL-browser-plausible
+# constants. We deliberately stick to constant value replacements — adding
+# per-call randomness (e.g. canvas LSB noise) makes the browser MORE
+# uniquely identifiable, not less, since real browsers are deterministic
+# per session. See docs/anti-detect.md for the explicit non-goals.
 _ANTI_DETECT_INIT_JS = r"""
-    // Override navigator.webdriver
+    // ── 1. navigator.webdriver — the canonical automation signal. ────────
     Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
-    delete navigator.__proto__.webdriver;
+    try { delete navigator.__proto__.webdriver; } catch (e) {}
 
-    // Override chrome detection
+    // ── 2. window.chrome shim ─────────────────────────────────────────────
+    // Production Chrome exposes a `chrome` object; its absence in headless
+    // is a strong automation signal.
     window.chrome = {
         runtime: {
             onMessage: { addListener: function() {}, removeListener: function() {} },
             onConnect: { addListener: function() {}, removeListener: function() {} },
             sendMessage: function() {},
-            connect: function() { return { onMessage: { addListener: function() {} }, postMessage: function() {} }; }
+            connect: function() {
+                return {
+                    onMessage: { addListener: function() {} },
+                    postMessage: function() {},
+                };
+            },
         },
         loadTimes: function() { return {}; },
         csi: function() { return {}; },
     };
 
-    // Override permissions
-    const originalQuery = window.navigator.permissions.query;
+    // ── 3. permissions.query — headless reports `denied` for notifications.
+    const originalPermQuery = window.navigator.permissions.query;
     window.navigator.permissions.query = (parameters) =>
         parameters.name === 'notifications'
             ? Promise.resolve({state: Notification.permission})
-            : originalQuery(parameters);
+            : originalPermQuery(parameters);
 
-    // Realistic plugins array
+    // ── 4. navigator.plugins — empty array is a giveaway. ────────────────
     Object.defineProperty(navigator, 'plugins', {
         get: () => {
             const plugins = [
-                { name: 'Chrome PDF Plugin', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
-                { name: 'Chrome PDF Viewer', filename: 'mhjfbmdgcfjbbpaeojofohoefgiehjai', description: '' },
+                { name: 'Chrome PDF Plugin', filename: 'internal-pdf-viewer',
+                  description: 'Portable Document Format' },
+                { name: 'Chrome PDF Viewer', filename: 'mhjfbmdgcfjbbpaeojofohoefgiehjai',
+                  description: '' },
                 { name: 'Native Client', filename: 'internal-nacl-plugin', description: '' },
             ];
             plugins.length = 3;
@@ -81,20 +95,47 @@ _ANTI_DETECT_INIT_JS = r"""
         }
     });
 
-    // Override languages
-    Object.defineProperty(navigator, 'languages', {
-        get: () => ['en-US', 'en']
-    });
+    // ── 5. navigator.languages ────────────────────────────────────────────
+    Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
 
-    // Hide automation indicators
+    // ── 6. Hardware-info constants ────────────────────────────────────────
+    // Headless defaults: maxTouchPoints=0 (fine), hardwareConcurrency=1
+    // (suspicious — real desktops are 4-16), deviceMemory=undefined
+    // (rare in the wild). Pin to common values found in production logs.
     Object.defineProperty(navigator, 'maxTouchPoints', { get: () => 0 });
+    Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 8 });
+    Object.defineProperty(navigator, 'deviceMemory', { get: () => 8 });
 
-    // Override connection info
+    // ── 7. connection.rtt — headless leaves this at 0 (a tell). ──────────
     if (navigator.connection) {
-        Object.defineProperty(navigator.connection, 'rtt', { get: () => 50 });
+        try { Object.defineProperty(navigator.connection, 'rtt', { get: () => 50 }); }
+        catch (e) {}
     }
 
-    // Prevent iframe detection of automation
+    // ── 8. WebGL vendor + renderer ────────────────────────────────────────
+    // The `WEBGL_debug_renderer_info` extension exposes GPU vendor + renderer
+    // strings; headless Chrome reports "Google Inc." / "ANGLE (Google,
+    // SwiftShader …)" — a perfect automation signal. Replace with a common
+    // Intel integrated-GPU string (same constant-replacement strategy as the
+    // navigator overrides above — no per-call randomness).
+    const _origGetParameter = WebGLRenderingContext.prototype.getParameter;
+    WebGLRenderingContext.prototype.getParameter = function(parameter) {
+        // UNMASKED_VENDOR_WEBGL = 0x9245
+        if (parameter === 0x9245) return 'Intel Inc.';
+        // UNMASKED_RENDERER_WEBGL = 0x9246
+        if (parameter === 0x9246) return 'Intel Iris OpenGL Engine';
+        return _origGetParameter.apply(this, arguments);
+    };
+    if (typeof WebGL2RenderingContext !== 'undefined') {
+        const _origGetParameter2 = WebGL2RenderingContext.prototype.getParameter;
+        WebGL2RenderingContext.prototype.getParameter = function(parameter) {
+            if (parameter === 0x9245) return 'Intel Inc.';
+            if (parameter === 0x9246) return 'Intel Iris OpenGL Engine';
+            return _origGetParameter2.apply(this, arguments);
+        };
+    }
+
+    // ── 9. Shadow DOM + iframe hardening ─────────────────────────────────
     const originalAttachShadow = Element.prototype.attachShadow;
     Element.prototype.attachShadow = function() {
         return originalAttachShadow.apply(this, arguments);

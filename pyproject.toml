@@ -3,20 +3,27 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "steadfast"
-version = "0.0.1"
+# Dist name on PyPI is `steadfast-browser` because the bare `steadfast`
+# name was taken by an unrelated serialization package (UCL, 2023).
+# The IMPORT name stays `steadfast` (set by the package directory itself),
+# so user code is `from steadfast import ...` regardless of dist name.
+name = "steadfast-browser"
+version = "0.1.0"
 description = "Browser agents that don't lose their sessions."
 readme = "README.md"
-license = { text = "Apache-2.0 WITH Commons-Clause" }
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 authors = [
-    { name = "TBD" },
+    { name = "Steadfast Maintainers", email = "hello@steadfast.dev" },
+]
+maintainers = [
+    { name = "Steadfast Maintainers", email = "hello@steadfast.dev" },
 ]
 requires-python = ">=3.10"
 keywords = ["browser", "agent", "playwright", "automation", "ai", "session"]
 classifiers = [
-    "Development Status :: 2 - Pre-Alpha",
+    "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
@@ -24,19 +31,26 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Topic :: Internet :: WWW/HTTP :: Browsers",
     "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
 ]
 
 dependencies = [
     "playwright>=1.40",
-    "structlog>=23.0",
 ]
 
 [project.optional-dependencies]
+# Optional aiohttp dep — only needed if you call AntiDetect.check_proxy_health()
+# or .check_all_proxies(). The library raises a clear error if missing.
+health = [
+    "aiohttp>=3.8",
+]
 dev = [
     "pytest>=7.4",
     "pytest-asyncio>=0.21",
     "ruff>=0.1",
     "mypy>=1.7",
+    "build>=1.0",
+    "twine>=4.0",
 ]
 
 [project.urls]
@@ -49,6 +63,10 @@ Issues = "https://github.com/getsteadfast/steadfast/issues"
 where = ["."]
 include = ["steadfast*"]
 exclude = ["tests*", "examples*", "docs*"]
+
+[tool.setuptools.package-data]
+# Ship py.typed so downstream `mypy` picks up the inline type annotations.
+steadfast = ["py.typed"]
 
 [tool.ruff]
 line-length = 100
@@ -67,3 +85,19 @@ ignore = [
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+# Skip the slow real-browser integration suite by default; opt in with `-m integration`.
+addopts = "-m 'not integration'"
+markers = [
+    "integration: launches a real chromium browser (skipped by default)",
+]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+files = ["steadfast"]
+
+# Playwright doesn't ship type stubs (1.40+). Treat its imports as untyped
+# rather than disabling strict mode globally.
+[[tool.mypy.overrides]]
+module = ["playwright.*"]
+ignore_missing_imports = true

@@ -14,13 +14,16 @@ from __future__ import annotations
 
 import logging
 import sys
+from collections.abc import MutableMapping
 from typing import Any
 
 
-class _KVAdapter(logging.LoggerAdapter):
+class _KVAdapter(logging.LoggerAdapter[logging.Logger]):
     """LoggerAdapter that renders kwargs as `key=value` after the message."""
 
-    def process(self, msg: str, kwargs: dict[str, Any]) -> tuple[str, dict[str, Any]]:
+    def process(
+        self, msg: Any, kwargs: MutableMapping[str, Any]
+    ) -> tuple[Any, MutableMapping[str, Any]]:
         extra = kwargs.pop("extra", {})
         merged = {**(self.extra or {}), **extra}
         # Treat any non-stdlib-logging kwargs as structured fields

@@ -37,3 +37,8 @@ state.json
 
 # Build artifacts
 *.egg
+
+# Local secrets — never commit (e.g. PyPI API tokens)
+pypiapi.txt
+*.pypirc
+.env

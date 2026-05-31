@@ -39,9 +39,14 @@ That's a solved problem.  Steadfast solves it like this:
 ## Quickstart
 
 ```bash
-pip install steadfast
+pip install steadfast-browser    # dist name on PyPI
 playwright install chromium
 ```
+
+> **Note on the name:** the package is installed as `steadfast-browser`
+> on PyPI (the bare `steadfast` name was taken by an unrelated 2023
+> package), but it imports as `steadfast` — so `pip install steadfast-browser`,
+> then `from steadfast import ...` in your code.
 
 ```python
 import asyncio
@@ -183,4 +188,6 @@ Apache 2.0 with Commons Clause — see [LICENSE](./LICENSE).
 
 You can use Steadfast for any commercial or non-commercial purpose,
 including paid client work.  You can't host it as a competing SaaS
-product.  If that's what you want, contact us about licensing.
+product.  If that's what you want, contact us at
+[hello@steadfast.dev](mailto:hello@steadfast.dev) about a commercial
+license.
