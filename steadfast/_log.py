@@ -15,10 +15,19 @@ from __future__ import annotations
 import logging
 import sys
 from collections.abc import MutableMapping
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+# `logging.LoggerAdapter` became a Generic in Python 3.11.  On 3.10 the
+# subscripted form `LoggerAdapter[logging.Logger]` raises TypeError at
+# class-definition time.  Split the base class so mypy still gets the
+# parameterized type but the runtime always sees the bare class.
+if TYPE_CHECKING:
+    _LoggerAdapterBase = logging.LoggerAdapter[logging.Logger]
+else:
+    _LoggerAdapterBase = logging.LoggerAdapter
 
 
-class _KVAdapter(logging.LoggerAdapter[logging.Logger]):
+class _KVAdapter(_LoggerAdapterBase):
     """LoggerAdapter that renders kwargs as `key=value` after the message."""
 
     def process(
