@@ -194,7 +194,10 @@ class AntiDetect:
         """Probe a proxy via httpbin.org/ip. True iff it returns HTTP 200."""
         # Import lazily so aiohttp stays optional.
         try:
-            import aiohttp  # type: ignore[import-not-found]
+            # The unused-ignore silences mypy when [health] IS installed
+            # (CI scenario). The import-not-found silences mypy when it
+            # isn't (the lazy-import scenario this whole try/except exists for).
+            import aiohttp  # type: ignore[import-not-found, unused-ignore]
         except ImportError as exc:
             raise RuntimeError(
                 "Proxy health checks require `aiohttp`. "
